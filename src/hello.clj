@@ -1,5 +1,6 @@
 (ns hello                                        
-  (:require [io.pedestal.http :as http]          
+  (:require [clojure.data.json :as json]
+            [io.pedestal.http :as http]
             [io.pedestal.http.route :as route]
             [io.pedestal.http.content-negotiation :as conneg]))
 
@@ -39,9 +40,31 @@
                   response (ok request)]
               (assoc context :response response)))})
 
+(def coerce-body
+  {:name ::coerce-body
+   :leave
+   (fn [context]
+     (let [accepted         (get-in context [:request :accept :field] "text/plain")
+           response         (get context :response)
+           body             (get response :body)
+           coerced-body     (case accepted
+                              "text/html"        body
+                              "text/plain"       body
+                              "application/edn"  (pr-str body)
+                              "application/json" (json/write-str body))
+           updated-response (assoc response
+                              :headers {"Content-Type" accepted}
+                              :body    coerced-body)]
+       (assoc context :response updated-response)))})
+
+;(def routes
+;  (route/expand-routes
+;    #{["/greet" :get respond-hello :route-name :greet]
+;      ["/echo"  :get echo]}))
+
 (def routes
   (route/expand-routes
-    #{["/greet" :get respond-hello :route-name :greet]
+    #{["/greet" :get [coerce-body content-neg-intc respond-hello] :route-name :greet]
       ["/echo"  :get echo]}))
 
 (def service-map
