@@ -1,11 +1,20 @@
 (ns hello                                        
   (:require [io.pedestal.http :as http]          
-            [io.pedestal.http.route :as route]))
+            [io.pedestal.http.route :as route]
+            [io.pedestal.http.content-negotiation :as conneg]))
 
 (def unmentionables #{"YHWH" "Voldemort" "Mxyzptlk" "Rumplestiltskin" "曹操"})
 
+(def supported-types ["text/html" "application/edn" "application/json" "text/plain"])
+
+(def content-neg-intc (conneg/negotiate-content supported-types))
+
+;(defn ok [body]
+;  {:status 200 :body body})
+
 (defn ok [body]
-  {:status 200 :body body})
+  {:status 200 :body body
+   :headers {"Content-Type" "text/html"}})
 
 (defn not-found []
   {:status 404 :body "Not found\n"})
@@ -23,9 +32,17 @@
       (ok resp)
       (not-found))))
 
+(def echo
+  {:name ::echo
+   :enter (fn [context]
+            (let [request (:request context)
+                  response (ok request)]
+              (assoc context :response response)))})
+
 (def routes
   (route/expand-routes
-    #{["/greet" :get respond-hello :route-name :greet]}))
+    #{["/greet" :get respond-hello :route-name :greet]
+      ["/echo"  :get echo]}))
 
 (def service-map
   {::http/routes routes
